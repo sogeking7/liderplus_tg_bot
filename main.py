@@ -1,5 +1,6 @@
 import os
 import aiohttp
+from messages import messages 
 from datetime import datetime
 from telegram import Update, KeyboardButton, ReplyKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler
@@ -8,30 +9,7 @@ TOKEN = "7012457237:AAFvXS3AJt4Y6KM_oHuMYMqb-WWEl6OenDs"
 PRIVATE_GROUP_LINK = "https://t.me/+5naTkmoBWK9hMWVi"
 API_URL = "https://script.google.com/macros/s/AKfycbweEBeUWzuPmLykeKIDOyGVfNvKcJ4F1ChaJ07oV3YYLIp8OXqMnVLEMDSMBIbdjc-qog/exec"
 
-messages = {
-    'kz': {
-        'start': '👋 Сәлем! ҰБТ курсына дайындықты бастау үшін, телефон нөміріңізбен бөлісіңіз.',
-        'choose_language': '🔤 Тілді таңдаңыз:',
-        'thank_you': '🙏 Телефон нөміріңізді бөліскеніңіз үшін рақмет! \nЕнді толық атыңызды жазыңыз:',
-        'loading': '⏳ Деректеріңіз жіберілуде...',
-        'success': '😊 Рақмет, {}! Сіздің телефон нөміріңіз: {}',
-        'join_link': '🔗 Жеке чатқа қосылу үшін, мына сілтемені басыңыз: {}',
-        'error': '❌ Деректерді жіберу кезінде қате болды.',
-        'request_contact': '📞 Өтініш, контакт ақпаратын бөлісіңіз.',
-        'share_contact': '📞 Телефон нөмірімді бөлісейін',
-    },
-    'ru': {
-        'start': '👋 Привет! Чтобы начать подготовку к ЕНТ, поделитесь своим номером телефона.',
-        'choose_language': '🔤 Выберите язык:',
-        'thank_you': '🙏 Спасибо за то, что поделились своим номером телефона! \nТеперь напишите ваше полное имя:',
-        'loading': '⏳ Данные отправляются...',
-        'success': '😊 Спасибо, {}! Ваш номер телефона: {}',
-        'join_link': '🔗 Нажмите на эту ссылку, чтобы присоединиться к личному чату: {}',
-        'error': '❌ Ошибка при отправке данных.',
-        'request_contact': '📞 Пожалуйста, поделитесь вашей контактной информацией.',
-        'share_contact': '📞 Поделитесь своим номером телефона',
-    }
-}
+application = ApplicationBuilder().token(TOKEN).build()
 
 LANGUAGE, PHONE, FULL_NAME = range(3)
 
@@ -94,22 +72,29 @@ async def send_post_request(full_name: str, phone_number: str, submitted_at: str
                 print(f"Қате: {response.status}")
                 return False
 
+async def webhook(request):
+    """Vercel-compatible webhook handler."""
+    update = Update.de_json(await request.json(), application.bot)
+    await application.process_update(update)
+    return {"status": "ok"}
+
+
 def main():
-    application = ApplicationBuilder().token(TOKEN).build()
-
-    conversation_handler = ConversationHandler(
-        entry_points=[CommandHandler("start", start)],
-        states={
-            LANGUAGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_language_selection)],
-            PHONE: [MessageHandler(filters.CONTACT, handle_contact)],
-            FULL_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_full_name)],
-        },
-        fallbacks=[],
-        allow_reentry=True,
-    )
-
-    application.add_handler(conversation_handler)
+    application.bot.set_webhook("https://your-vercel-app.vercel.app/api/webhook")
     application.run_polling()
+
+conversation_handler = ConversationHandler(
+    entry_points=[CommandHandler("start", start)],
+    states={
+        LANGUAGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_language_selection)],
+        PHONE: [MessageHandler(filters.CONTACT, handle_contact)],
+        FULL_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_full_name)],
+    },
+    fallbacks=[],
+    allow_reentry=True,
+)
+application.add_handler(conversation_handler)
+
 
 if __name__ == '__main__':
     main()
